@@ -33,6 +33,10 @@ reopens, automatic database restoration is forbidden to avoid losing new writes;
 the failed workflow identifies the need for investigation. MCP health failure
 restores its previous image without changing Redis or credentials.
 
+Database maintenance commands run inside the PostgreSQL container over its local
+Unix socket. They override the shared `PGHOST` setting so application TCP
+connection settings cannot redirect backups/restores or require an extra secret.
+
 Backups and the previous image map are in
 `/home/caio/plane-deploy/backups/<timestamp>-<commit>/`. The latest successful
 commit is recorded in `app-last-success.json` / `mcp-last-success.json` in the same
