@@ -63,9 +63,9 @@ requires installing this file over the administrative SSH connection; the CI key
 cannot replace its own receiver or run arbitrary scripts. CI deploys application
 code through images, not by uploading executable shell scripts.
 
-The upstream `Branch Build CE` workflow is disabled in this fork's Actions
-settings because it publishes to upstream-owned registries. Its source is kept
-unchanged for straightforward synchronization. The custom workflow is additive.
+The upstream `Branch Build CE` publisher is guarded by its original repository
+name because it publishes to upstream-owned registries. This one-line guard
+prevents it running in the fork; our separate workflow owns fork deployment.
 
 ## Recovery
 

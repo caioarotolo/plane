@@ -69,6 +69,29 @@ class DeploymentBoundaries(unittest.TestCase):
             self.assertEqual(deployment.compose.call_count, 2)
             execute.assert_not_called()
 
+    def test_migration_failure_restores_snapshot_before_old_services_restart(self):
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.dict(receiver.TARGETS, {"app": ("plane", "preview", Path(directory), "compose.yaml")}),
+            patch.object(receiver, "run") as execute,
+        ):
+            root = Path(directory)
+            (root / "release.compose.json").write_text('{"old":true}')
+            (root / "database.dump").write_bytes(b"test archive")
+            deployment = receiver.Deployment("app", "a" * 40, "test-token", directory)
+            deployment.backup = root
+            deployment.database_backup = Mock()
+            deployment.candidate.write_text('{"new":true}')
+            deployment.compose = Mock(side_effect=[None, RuntimeError("migration failed"), None, None, None])
+            with self.assertRaises(RuntimeError):
+                deployment.activate()
+            self.assertEqual(deployment.active.read_text(), '{"old":true}')
+            self.assertFalse(deployment.traffic_open)
+            self.assertEqual(execute.call_count, 2)
+            self.assertIn("dropdb --force", execute.call_args_list[0].args[0][-1])
+            self.assertIn("pg_restore --exit-on-error", execute.call_args_list[1].args[0][-1])
+            self.assertEqual(deployment.compose.call_args_list[-1].args, ("up", "-d", "--no-deps", "proxy"))
+
 
 if __name__ == "__main__":
     unittest.main()
