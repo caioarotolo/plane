@@ -27,7 +27,8 @@ jobs:
           node-version-file: .node-version
       - run: corepack enable pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm turbo run check:lint check:types test
+      - run: pnpm turbo run check:lint check:types --concurrency=2
+      - run: pnpm turbo run test --concurrency=1 -- --maxWorkers=2
       - run: python3 -m unittest discover -s deployments/openmarkets/tests -v
   api-tests:
     if: github.repository == 'caioarotolo/plane'
