@@ -44,6 +44,7 @@ concurrency:
 
 jobs:
   react-doctor:
+    if: github.repository == 'makeplane/plane'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

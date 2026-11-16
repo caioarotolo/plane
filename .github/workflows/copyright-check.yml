@@ -14,6 +14,7 @@ on:
 
 jobs:
     license-check:
+        if: github.repository == 'makeplane/plane'
         name: Copy Right Check
         runs-on: ubuntu-latest
         steps:

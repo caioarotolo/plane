@@ -28,7 +28,7 @@ jobs:
     name: check + makemigrations --check
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    if: github.repository == 'makeplane/plane' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false)
     env:
       DJANGO_SETTINGS_MODULE: plane.settings.production
       # No database or redis is contacted: `check` and `makemigrations --check`
@@ -104,7 +104,7 @@ jobs:
     name: label migration PRs
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.repository == 'makeplane/plane' && (github.event_name == 'pull_request' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository)
     permissions:
       contents: read
       pull-requests: write

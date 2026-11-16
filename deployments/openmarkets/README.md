@@ -2,15 +2,23 @@
 
 Only the user's forks deploy:
 
-- `caioarotolo/plane`, branch `preview`: API tests/lint, frontend lint/types/tests,
-  six Docker builds, then production deployment.
-- `caioarotolo/plane-mcp-server`, branch `main`: upstream + OAuth tests, lint,
-  formatting, Docker build, then production deployment.
+- `caioarotolo/plane`, branch `preview`: six Docker builds, then production deployment.
+- `caioarotolo/plane-mcp-server`, branch `main`: Docker build, then production deployment.
 
 A merge, direct push or upstream synchronization onto these branches runs the
-pipeline automatically. PRs validate without deployment credentials. Manual
+pipeline automatically. PRs do not launch test or build runners. Manual
 `workflow_dispatch` can retry the production branch. The app deliberately follows
 upstream development (`preview`), not only stable releases.
+
+CI test suites and auxiliary validation (lint, format, types, CodeQL, React Doctor,
+migrations, translations, copyright and version checks) are intentionally disabled
+on these forks to reduce Actions usage. Agents can run the same checks on the
+user's machine before publishing; each repository's `AGENTS.md` lists the local
+commands and scope guidance. Keep this policy when syncing upstream, including
+new workflow files. Upstream validation jobs are restricted to the official
+repository, and registered auxiliary workflows are disabled in the fork's Actions
+settings. Production backups, migrations, health/availability checks and recovery
+remain enabled. The build/deploy jobs still use Actions minutes.
 
 ## Build and deployment
 
@@ -73,7 +81,7 @@ prevents it running in the fork; our separate workflow owns fork deployment.
 
 ## Recovery
 
-An unsuccessful build/test does not touch production. A failure during a
+An unsuccessful image build does not touch production. A failure during a
 deployment is visible in GitHub Actions; inspect its log and the receiver's last
 success record. For MCP, use the previous image overlay with `mcp.sh up -d`.
 For the app, inspect migrations before reverting images; never restore a database
