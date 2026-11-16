@@ -153,6 +153,8 @@ class Deployment:
                 [
                     "docker",
                     "exec",
+                    "--env",
+                    "PGHOST=/var/run/postgresql",
                     "plane-plane-db-1",
                     "sh",
                     "-c",
@@ -176,6 +178,8 @@ class Deployment:
                     [
                         "docker",
                         "exec",
+                        "--env",
+                        "PGHOST=/var/run/postgresql",
                         "plane-plane-db-1",
                         "sh",
                         "-c",
@@ -189,6 +193,8 @@ class Deployment:
                             "docker",
                             "exec",
                             "-i",
+                            "--env",
+                            "PGHOST=/var/run/postgresql",
                             "plane-plane-db-1",
                             "sh",
                             "-c",

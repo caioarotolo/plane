@@ -92,6 +92,26 @@ class DeploymentBoundaries(unittest.TestCase):
             self.assertIn("pg_restore --exit-on-error", execute.call_args_list[1].args[0][-1])
             self.assertEqual(deployment.compose.call_args_list[-1].args, ("up", "-d", "--no-deps", "proxy"))
 
+    def test_failed_backup_never_migrates_or_restores_database(self):
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.dict(receiver.TARGETS, {"app": ("plane", "preview", Path(directory), "compose.yaml")}),
+            patch.object(receiver, "run") as execute,
+        ):
+            root = Path(directory)
+            (root / "release.compose.json").write_text('{"old":true}')
+            deployment = receiver.Deployment("app", "a" * 40, "test-token", directory)
+            deployment.candidate.write_text('{"new":true}')
+            deployment.database_backup = Mock(side_effect=RuntimeError("backup failed"))
+            deployment.compose = Mock()
+            with self.assertRaisesRegex(RuntimeError, "backup failed"):
+                deployment.activate()
+            self.assertFalse(deployment.migration_started)
+            self.assertEqual(deployment.active.read_text(), '{"old":true}')
+            self.assertFalse(deployment.candidate.exists())
+            self.assertFalse(any("migrator" in call.args for call in deployment.compose.call_args_list))
+            execute.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
