@@ -18,10 +18,9 @@ export type TUserMention = {
 
 export abstract class PageCoreService extends APIService {
   protected abstract basePath: string;
+  protected descriptionPath = "description";
 
-  constructor() {
-    super();
-  }
+  
 
   async fetchDetails(pageId: string): Promise<TPage> {
     try {
@@ -40,7 +39,7 @@ export abstract class PageCoreService extends APIService {
 
   async fetchDescriptionBinary(pageId: string): Promise<Buffer> {
     try {
-      const response = await this.get(`${this.basePath}/pages/${encodeURIComponent(pageId)}/description/`, {
+      const response = await this.get(`${this.basePath}/pages/${encodeURIComponent(pageId)}/${this.descriptionPath}/`, {
         headers: {
           ...this.getHeader(),
           "Content-Type": "application/octet-stream",
@@ -115,11 +114,13 @@ export abstract class PageCoreService extends APIService {
     }
   }
 
-  async updateDescriptionBinary(pageId: string, data: TDocumentPayload): Promise<any> {
+  async updateDescriptionBinary(pageId: string, data: TDocumentPayload & { name?: string }): Promise<any> {
     try {
-      const response = await this.patch(`${this.basePath}/pages/${encodeURIComponent(pageId)}/description/`, data, {
-        headers: this.getHeader(),
-      });
+      const response = await this.patch(
+        `${this.basePath}/pages/${encodeURIComponent(pageId)}/${this.descriptionPath}/`,
+        data,
+        { headers: this.getHeader() }
+      );
       return response?.data as unknown;
     } catch (error) {
       const appError = new AppError(error, {

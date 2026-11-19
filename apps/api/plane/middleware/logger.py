@@ -122,7 +122,7 @@ class APITokenLogMiddleware:
         return decoded
 
     # Headers whose values must never be persisted in plaintext logs
-    SENSITIVE_HEADERS = frozenset({"x-api-key", "authorization", "cookie"})
+    SENSITIVE_HEADERS = frozenset({"x-api-key", "authorization", "cookie", "live-server-secret-key"})
 
     def _redacted_headers(self, request):
         """
@@ -144,6 +144,7 @@ class APITokenLogMiddleware:
             return
 
         try:
+            log_body = getattr(request, "api_log_body", True)
             log_data = {
                 # Tokenize the (high-entropy) API key into a stable, non-reversible
                 # identifier so logs can be correlated to a token without ever
@@ -156,8 +157,8 @@ class APITokenLogMiddleware:
                 "method": request.method,
                 "query_params": request.META.get("QUERY_STRING", ""),
                 "headers": self._redacted_headers(request),
-                "body": self._safe_decode_body(request_body) if request_body else None,
-                "response_body": self._safe_decode_body(response.content) if response.content else None,
+                "body": self._safe_decode_body(request_body) if log_body and request_body else None,
+                "response_body": self._safe_decode_body(response.content) if log_body and response.content else None,
                 "response_code": response.status_code,
                 "ip_address": get_client_ip(request=request),
                 "user_agent": request.META.get("HTTP_USER_AGENT", None),

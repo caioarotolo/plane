@@ -36,6 +36,7 @@ const fetchDocument = async ({ context, documentName: pageId, instance }: FetchP
         pageDetails.description_html ?? "<p></p>",
         pageDetails.name
       );
+      if (context.apiKey) return convertedBinaryData;
       if (convertedBinaryData) {
         // save the converted binary data back to the database
         try {
@@ -78,20 +79,20 @@ const storeDocument = async ({
   try {
     const service = getPageService(context.documentType, context);
     // convert binary data to all formats
-    const { contentBinaryEncoded, contentHTML, contentJSON } = getAllDocumentFormatsFromDocumentEditorBinaryData(
-      pageBinaryData,
-      true
-    );
+    const { contentBinaryEncoded, contentHTML, contentJSON, titleHTML } =
+      getAllDocumentFormatsFromDocumentEditorBinaryData(pageBinaryData, true);
     // create payload
-    const payload: TDocumentPayload = {
+    const payload: TDocumentPayload & { name?: string } = {
       description_binary: contentBinaryEncoded,
       description_html: contentHTML,
       description_json: contentJSON,
+      ...(context.updateTitle ? { name: titleHTML } : {}),
     };
     await service.updateDescriptionBinary(pageId, payload);
   } catch (error) {
     const appError = new AppError(error, { context: { pageId } });
     logger.error("Error in updating document:", appError);
+    if (context.apiKey) throw appError;
 
     // Check error types
     const isContentTooLarge = appError.statusCode === 413;
