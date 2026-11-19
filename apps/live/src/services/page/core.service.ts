@@ -20,8 +20,6 @@ export abstract class PageCoreService extends APIService {
   protected abstract basePath: string;
   protected descriptionPath = "description";
 
-  
-
   async fetchDetails(pageId: string): Promise<TPage> {
     try {
       const response = await this.get(`${this.basePath}/pages/${encodeURIComponent(pageId)}/`, {
