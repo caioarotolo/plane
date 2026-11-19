@@ -12,6 +12,7 @@ import { loggerConfig } from "./config";
 export const loggerMiddleware: RequestHandler = expressWinston.logger({
   ...loggerConfig,
   transports: [new transports.Console()],
+  headerBlacklist: ["authorization", "cookie", "x-api-key", "live-server-secret-key"],
   msg: "{{req.method}} {{req.url}} {{res.statusCode}} {{res.responseTime}}ms",
   expressFormat: true,
 });

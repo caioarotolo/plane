@@ -24,6 +24,7 @@ import { REDIS_TRANSACTION_ORIGIN } from "@/lib/yjs/redis-origin";
 // helpers
 import { getPageService } from "@/services/page/handler";
 import type { HocusPocusServerContext, OnLoadDocumentPayloadWithContext } from "@/types";
+import { PROJECT_PAGE_API_ORIGIN } from "@/types";
 import { broadcastMessageToPage } from "@/utils/broadcast-message";
 import { TitleUpdateManager } from "./title-update/title-update-manager";
 
@@ -142,6 +143,8 @@ export class TitleSyncExtension implements Extension {
     const origin: unknown = events[0]?.transaction.origin;
     if (origin instanceof Connection) {
       manager?.scheduleUpdate(title, origin.context as HocusPocusServerContext);
+    } else if (origin === PROJECT_PAGE_API_ORIGIN) {
+      manager?.cancel();
     } else if (origin !== REDIS_TRANSACTION_ORIGIN) {
       logger.warn(`TitleSync: not saving title for ${documentName}; unrecognised transaction origin`);
     }

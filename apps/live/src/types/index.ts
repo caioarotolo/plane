@@ -25,6 +25,8 @@ export interface StorePayloadWithContext extends storePayload {
 
 export type TDocumentTypes = "project_page";
 
+export const PROJECT_PAGE_API_ORIGIN = Symbol("project-page-api");
+
 // Additional Hocuspocus types that are not exported from the main package
 export type HocusPocusServerContext = {
   projectId: string | null;
@@ -32,4 +34,6 @@ export type HocusPocusServerContext = {
   documentType: TDocumentTypes;
   workspaceSlug: string | null;
   userId: string;
+  apiKey?: string;
+  updateTitle?: boolean;
 };

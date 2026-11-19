@@ -7,11 +7,14 @@
 import { once } from "node:events";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import { Hocuspocus } from "@hocuspocus/server";
+import express from "express";
 import RedisClient from "ioredis";
 import { WebSocketServer } from "ws";
 import * as Y from "yjs";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { registerController } from "@plane/decorators";
 import type { TDocumentPayload } from "@plane/types";
+import { ProjectPageController } from "@/controllers/project-page.controller";
 import { Database } from "@/extensions/database";
 import { Redis } from "@/extensions/redis";
 import { TitleSyncExtension } from "@/extensions/title-sync";
@@ -26,6 +29,7 @@ const V2_PAGE_WITHOUT_TITLE =
 
 const redisState = vi.hoisted(() => ({ client: null as RedisClient | null }));
 vi.mock("@/redis", () => ({ redisManager: { getClient: () => redisState.client } }));
+vi.mock("@/env", () => ({ env: { LIVE_SERVER_SECRET_KEY: "test-live-key" } }));
 
 // Only the API boundary is replaced; Plane's codecs, persistence and title hooks run unchanged.
 const api = vi.hoisted(() => ({
@@ -38,9 +42,10 @@ vi.mock("@/services/page/handler", () => ({
   getPageService: () => ({
     fetchDescriptionBinary: (id: string) => Promise.resolve(api.saved.get(id) ?? new Uint8Array()),
     fetchDetails: (id: string) => Promise.resolve(api.details.get(id) ?? { name: "" }),
-    updateDescriptionBinary: (id: string, payload: TDocumentPayload) => {
+    updateDescriptionBinary: (id: string, payload: TDocumentPayload & { name?: string }) => {
       api.saved.set(id, Buffer.from(payload.description_binary!, "base64"));
       api.html.set(id, payload.description_html!);
+      if (payload.name !== undefined) api.titles.set(id, payload.name);
       return Promise.resolve();
     },
     updatePageProperties: (id: string, { data }: { data: { name: string } }) => {
@@ -154,18 +159,8 @@ describe.skipIf(!REDIS_URL)("Hocuspocus v3 with Plane's Redis extension and v2 d
       expect(stateless.every((messages) => messages.includes('{"migrationTest":true}'))).toBe(true)
     );
 
-    const direct = await servers[0].openDirectConnection("v2-page", {
-      documentType: "project_page",
-      workspaceSlug: "w",
-      projectId: "p",
-      userId: "u",
-      cookie: "c",
-    });
-    await direct.transact((doc) => {
-      const title = (doc.getXmlFragment("title").get(0) as Y.XmlElement).get(0) as Y.XmlText;
-      title.insert(title.length, " updated");
-    });
-    await direct.disconnect();
+    const title = (first.document.getXmlFragment("title").get(0) as Y.XmlElement).get(0) as Y.XmlText;
+    title.insert(title.length, " updated");
     await vi.waitFor(() => expect(second.document.getXmlFragment("title").toJSON()).toContain("updated"));
 
     await disconnectAll("v2-page");
@@ -197,4 +192,45 @@ describe.skipIf(!REDIS_URL)("Hocuspocus v3 with Plane's Redis extension and v2 d
     expect(api.html.get("html-only-page")).toBe('<p class="editor-paragraph-block">Saved as <strong>HTML</strong></p>');
     await disconnectAll("html-only-page");
   });
+
+  it("updates an existing project page and synchronizes the open document across servers", async () => {
+    const pageId = "0565e4f4-9953-4efc-8a91-d13fa32e8206";
+    api.details.set(pageId, { name: "Original title", description_html: "<p>Original body</p>" });
+    const router = express.Router();
+    registerController(router, ProjectPageController, [servers[0]]);
+    const http = express().use(express.json(), router).listen(0, "127.0.0.1");
+    await once(http, "listening");
+    const url = `http://127.0.0.1:${(http.address() as { port: number }).port}/collaboration/project-page/`;
+    const update = (changes: { name?: string; description_html?: string }, secret = "test-live-key") =>
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Api-Key": "test-key", "Live-Server-Secret-Key": secret },
+        body: JSON.stringify({
+          slug: "w",
+          projectId: "047e4787-5738-4f84-a116-f150238c991d",
+          userId: "456f34ca-9c92-4a8a-8a95-e2b6e70eb8d4",
+          pageId,
+          ...changes,
+        }),
+      });
+
+    try {
+      expect((await update({ name: "Invalid" }, "invalid-key")).status).toBe(401);
+      expect((await update({ name: "Renamed" })).status).toBe(204);
+      expect(api.titles.get(pageId)).toBe("Renamed");
+      expect(api.html.get(pageId)).toContain("Original body");
+
+      const { document, provider } = connect(1, pageId);
+      await vi.waitFor(() => expect(provider.isSynced).toBe(true));
+      expect((await update({ description_html: "<h2>New body</h2>" })).status).toBe(204);
+
+      await vi.waitFor(() => expect(document.getXmlFragment("default").toJSON()).toContain("New body"));
+      expect(document.getXmlFragment("default").toJSON()).not.toContain("Original body");
+      expect(document.getXmlFragment("title").toJSON()).toContain("Renamed");
+      expect(api.html.get(pageId)).toContain("New body");
+      await disconnectAll(pageId);
+    } finally {
+      await new Promise<void>((resolve) => http.close(() => resolve()));
+    }
+  }, 15_000);
 });
