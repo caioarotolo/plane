@@ -14,7 +14,7 @@ import * as Y from "yjs";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { registerController } from "@plane/decorators";
 import type { TDocumentPayload } from "@plane/types";
-import { ProjectPageController } from "@/controllers/project-page.controller";
+import { PROJECT_PAGE_EDIT_PATH, ProjectPageController, projectPageJson } from "@/controllers/project-page.controller";
 import { Database } from "@/extensions/database";
 import { Redis } from "@/extensions/redis";
 import { TitleSyncExtension } from "@/extensions/title-sync";
@@ -198,9 +198,11 @@ describe.skipIf(!REDIS_URL)("Hocuspocus v3 with Plane's Redis extension and v2 d
     api.details.set(pageId, { name: "Original title", description_html: "<p>Original body</p>" });
     const router = express.Router();
     registerController(router, ProjectPageController, [servers[0]]);
-    const http = express().use(express.json(), router).listen(0, "127.0.0.1");
+    const app = express();
+    app.post(PROJECT_PAGE_EDIT_PATH, projectPageJson);
+    const http = app.use(express.json(), router).listen(0, "127.0.0.1");
     await once(http, "listening");
-    const url = `http://127.0.0.1:${(http.address() as { port: number }).port}/collaboration/project-page/`;
+    const url = `http://127.0.0.1:${(http.address() as { port: number }).port}${PROJECT_PAGE_EDIT_PATH}/`;
     const update = (changes: { name?: string; description_html?: string }, secret = "test-live-key") =>
       fetch(url, {
         method: "POST",
@@ -222,12 +224,14 @@ describe.skipIf(!REDIS_URL)("Hocuspocus v3 with Plane's Redis extension and v2 d
 
       const { document, provider } = connect(1, pageId);
       await vi.waitFor(() => expect(provider.isSynced).toBe(true));
-      expect((await update({ description_html: "<h2>New body</h2>" })).status).toBe(204);
+      const longBody = `<h2>New body</h2><p>${"Text ".repeat(24_000)}</p>`;
+      expect((await update({ description_html: longBody })).status).toBe(204);
 
       await vi.waitFor(() => expect(document.getXmlFragment("default").toJSON()).toContain("New body"));
       expect(document.getXmlFragment("default").toJSON()).not.toContain("Original body");
       expect(document.getXmlFragment("title").toJSON()).toContain("Renamed");
       expect(api.html.get(pageId)).toContain("New body");
+      expect(api.html.get(pageId)?.length).toBeGreaterThan(100_000);
       await disconnectAll(pageId);
     } finally {
       await new Promise<void>((resolve) => http.close(() => resolve()));

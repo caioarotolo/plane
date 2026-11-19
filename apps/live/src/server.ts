@@ -17,10 +17,12 @@ import { registerController } from "@plane/decorators";
 import { logger, loggerMiddleware } from "@plane/logger";
 // controllers
 import { CONTROLLERS } from "@/controllers";
+import { PROJECT_PAGE_EDIT_PATH, projectPageJson } from "@/controllers/project-page.controller";
 // env
 import { env } from "@/env";
 // hocuspocus server
 import { HocusPocusServerManager } from "@/hocuspocus";
+import { requireSecretKey } from "@/lib/auth-middleware";
 import { drainCollaborationServer, withinShutdownDeadline } from "@/lib/drain-server";
 // redis
 import { redisManager } from "@/redis";
@@ -66,6 +68,11 @@ export class Server {
     // Logging middleware
     this.app.use(loggerMiddleware);
     // Body parsing middleware
+    this.app.post(
+      `${env.LIVE_BASE_PATH.replace(/\/$/, "")}${PROJECT_PAGE_EDIT_PATH}`,
+      requireSecretKey,
+      projectPageJson
+    );
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
     // cors middleware

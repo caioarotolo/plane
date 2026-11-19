@@ -5,6 +5,7 @@
  */
 
 import type { Hocuspocus } from "@hocuspocus/server";
+import express from "express";
 import type { Request, Response } from "express";
 import * as Y from "yjs";
 import { z } from "zod";
@@ -27,7 +28,10 @@ const projectPageUpdate = z
   })
   .refine(({ name, description_html }) => name !== undefined || description_html !== undefined);
 
-@Controller("/collaboration")
+export const PROJECT_PAGE_EDIT_PATH = "/collaboration/project-page";
+export const projectPageJson = express.json({ limit: "10mb" });
+
+@Controller(PROJECT_PAGE_EDIT_PATH)
 export class ProjectPageController {
   [key: string]: unknown;
   private readonly hocusPocusServer: Hocuspocus;
@@ -36,7 +40,7 @@ export class ProjectPageController {
     this.hocusPocusServer = hocusPocusServer;
   }
 
-  @Post("/project-page/")
+  @Post("/")
   @Middleware(requireSecretKey)
   async updateProjectPage(req: Request, res: Response) {
     const parsed = projectPageUpdate.safeParse(req.body);
