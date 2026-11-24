@@ -261,6 +261,12 @@ class Profile(TimeAuditModel):
     is_subscribed_to_changelog = models.BooleanField(default=False)
     product_tour = models.JSONField(default=get_default_product_tour)
 
+    def __init__(self, *args, **kwargs):
+        # OpenMarkets self-hosted: default new profiles to pt-BR without adding a DB migration.
+        if not args and "language" not in kwargs:
+            kwargs["language"] = "pt-BR"
+        super().__init__(*args, **kwargs)
+
     class Meta:
         verbose_name = "Profile"
         verbose_name_plural = "Profiles"
