@@ -12,10 +12,13 @@ import { useTranslation } from "@plane/i18n";
 import { Button } from "@makeplane/propel/components/button";
 import { Icon } from "@makeplane/propel/components/icon";
 import { InputField } from "@makeplane/propel/components/input-field";
+import { Separator } from "@makeplane/propel/components/separator";
 import { SearchOutline } from "@makeplane/propel/icons";
 import { EmptyStateCompact } from "@plane/blocks/empty-state";
 import { APITokenService } from "@plane/services";
 // components
+import { partitionApiTokens } from "@/components/api-token/mcp-oauth";
+import { McpOAuthSection } from "@/components/api-token/mcp-oauth-section";
 import { CreateApiTokenModal } from "@/components/api-token/modal/create-token-modal";
 import { ApiTokensTable } from "@/components/api-token/tokens-table";
 import { ProfileSettingsHeading } from "@/components/settings/profile/heading";
@@ -34,26 +37,55 @@ export const APITokensProfileSettings = observer(function APITokensProfileSettin
   // translation
   const { t } = useTranslation();
   // derived values
+  const { oauthTokens, personalTokens } = useMemo(() => partitionApiTokens(tokens ?? []), [tokens]);
   const filteredTokens = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!tokens || !query) return tokens ?? [];
-    return tokens.filter(
+    if (!query) return personalTokens;
+    return personalTokens.filter(
       (token) => token.label?.toLowerCase().includes(query) || token.description?.toLowerCase().includes(query)
     );
-  }, [tokens, searchQuery]);
+  }, [personalTokens, searchQuery]);
 
   if (!tokens) {
     return <APITokenSettingsLoader />;
   }
 
   return (
-    <div className="flex size-full flex-col gap-4">
+    <div className="flex size-full flex-col gap-6">
       <CreateApiTokenModal isOpen={isCreateTokenModalOpen} onClose={() => setIsCreateTokenModalOpen(false)} />
-      <ProfileSettingsHeading
-        title={t("account_settings.api_tokens.title")}
-        description={t("account_settings.api_tokens.description")}
-        control={
-          tokens.length === 0 && (
+      <McpOAuthSection tokens={oauthTokens} />
+      <Separator orientation="horizontal" decorative={false} />
+      <div className="flex flex-col gap-4">
+        <ProfileSettingsHeading
+          title={t("account_settings.api_tokens.title")}
+          description={t("account_settings.api_tokens.description")}
+          control={
+            personalTokens.length === 0 && (
+              <Button
+                variant="primary"
+                size="md"
+                stretch="auto"
+                label={t("workspace_settings.settings.api_tokens.add_token")}
+                onClick={() => setIsCreateTokenModalOpen(true)}
+              />
+            )
+          }
+        />
+        {/* the toolbar stays while a query is set, so an emptied list can still be cleared */}
+        {(personalTokens.length > 0 || searchQuery !== "") && (
+          <div className="flex items-center justify-between gap-4">
+            <div className="w-full sm:w-72">
+              <InputField
+                type="search"
+                size="lg"
+                orientation="vertical"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t("common.search.label")}
+                aria-label={t("common.search.label")}
+                startIcon={<Icon icon={SearchOutline} tint="tertiary" />}
+              />
+            </div>
             <Button
               variant="primary"
               size="md"
@@ -61,58 +93,34 @@ export const APITokensProfileSettings = observer(function APITokensProfileSettin
               label={t("workspace_settings.settings.api_tokens.add_token")}
               onClick={() => setIsCreateTokenModalOpen(true)}
             />
-          )
-        }
-      />
-      {/* the toolbar stays while a query is set, so an emptied list can still be cleared */}
-      {(tokens.length > 0 || searchQuery !== "") && (
-        <div className="flex items-center justify-between gap-4">
-          <div className="w-full sm:w-72">
-            <InputField
-              type="search"
-              size="lg"
-              orientation="vertical"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t("common.search.label")}
-              aria-label={t("common.search.label")}
-              startIcon={<Icon icon={SearchOutline} tint="tertiary" />}
-            />
           </div>
-          <Button
-            variant="primary"
-            size="md"
-            stretch="auto"
-            label={t("workspace_settings.settings.api_tokens.add_token")}
-            onClick={() => setIsCreateTokenModalOpen(true)}
-          />
-        </div>
-      )}
-      <div>
-        {tokens.length === 0 ? (
-          <EmptyStateCompact
-            assetKey="token"
-            assetClassName="size-20"
-            title={t("settings_empty_state.tokens.title")}
-            description={t("settings_empty_state.tokens.description")}
-            actions={[
-              {
-                label: t("settings_empty_state.tokens.cta_primary"),
-                onClick: () => {
-                  setIsCreateTokenModalOpen(true);
-                },
-              },
-            ]}
-            align="center"
-            rootClassName="rounded-lg border border-subtle bg-surface-1 py-10"
-          />
-        ) : filteredTokens.length === 0 ? (
-          <p className="rounded-lg border border-subtle bg-surface-1 py-10 text-center text-body-sm-regular text-tertiary">
-            {t("common.search.no_matches_found")}
-          </p>
-        ) : (
-          <ApiTokensTable tokens={filteredTokens} />
         )}
+        <div>
+          {personalTokens.length === 0 ? (
+            <EmptyStateCompact
+              assetKey="token"
+              assetClassName="size-20"
+              title={t("settings_empty_state.tokens.title")}
+              description={t("settings_empty_state.tokens.description")}
+              actions={[
+                {
+                  label: t("settings_empty_state.tokens.cta_primary"),
+                  onClick: () => {
+                    setIsCreateTokenModalOpen(true);
+                  },
+                },
+              ]}
+              align="center"
+              rootClassName="rounded-lg border border-subtle bg-surface-1 py-10"
+            />
+          ) : filteredTokens.length === 0 ? (
+            <p className="rounded-lg border border-subtle bg-surface-1 py-10 text-center text-body-sm-regular text-tertiary">
+              {t("common.search.no_matches_found")}
+            </p>
+          ) : (
+            <ApiTokensTable tokens={filteredTokens} />
+          )}
+        </div>
       </div>
     </div>
   );
